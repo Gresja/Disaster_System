@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disaster Emergency Response — Dashboard</title>
+  <style>
+    :root {
+      --bg:         #0f1318;
+      --surface:    #181d25;
+      --surface-2:  #1e2530;
+      --border:     #2a3140;
+      --text:       #d0d7e0;
+      --text-dim:   #7a8494;
+      --accent:     #58a6ff;
+      --success:    #3fb950;
+      --warning:    #d29922;
+      --danger:     #f85149;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.8rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .h-left { display: flex; align-items: center; gap: 0.8rem; }
+    .h-logo { font-size: 1.7rem; }
+    .h-title { font-size: 1.05rem; font-weight: 700; }
+    .h-sub   { font-size: 0.72rem; color: var(--text-dim); }
+    .h-right { display: flex; align-items: center; gap: 1rem; }
+    .conn-badge {
+      display: flex; align-items: center; gap: 0.4rem;
+      padding: 0.28rem 0.75rem; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 600;
+      background: var(--surface-2); border: 1px solid var(--border);
+      color: var(--text-dim); transition: all 0.4s;
+    }
+    .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); transition: background 0.4s; }
+    .conn-badge.live   { border-color: var(--success); color: var(--success); }
+    .conn-badge.live .conn-dot { background: var(--success); animation: blink 1.4s infinite; }
+    .conn-badge.done   { border-color: var(--warning);  color: var(--warning); }
+    .conn-badge.done .conn-dot { background: var(--warning); }
+    .clock { font-family: monospace; font-size: 0.82rem; color: var(--text-dim); }
+
+    /* ── Explanation banner ─────────────────────────────── */
+    .explain {
+      background: linear-gradient(135deg, #1a2332 0%, #1a1f2e 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 1.2rem 2rem;
+    }
+    .explain-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--accent); }
+    .explain p { font-size: 0.82rem; line-height: 1.7; color: var(--text-dim); max-width: 1000px; }
+    .explain b { color: var(--text); font-weight: 600; }
+
+    /* ── Flow diagram ──────────────────────────────────── */
+    .flow {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0; padding: 1rem 2rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .flow-step {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0.7rem 1.4rem; min-width: 140px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      transition: border-color 0.4s, box-shadow 0.4s;
+    }
+    .flow-step.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 18px rgba(88,166,255,0.15);
+    }
+    .flow-step.done {
+      border-color: var(--success);
+      box-shadow: 0 0 12px rgba(63,185,80,0.1);
+    }
+    .flow-icon { font-size: 1.6rem; margin-bottom: 0.2rem; }
+    .flow-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
+    .flow-value { font-size: 1.5rem; font-weight: 800; margin-top: 0.1rem; transition: color 0.3s; }
+    .flow-desc  { font-size: 0.62rem; color: var(--text-dim); margin-top: 0.15rem; text-align: center; }
+    .flow-arrow {
+      font-size: 1.5rem; color: var(--text-dim); margin: 0 0.5rem;
+      animation: arrowPulse 2s infinite;
+    }
+    @keyframes arrowPulse { 0%,100%{opacity:0.3} 50%{opacity:0.8} }
+
+    /* ── Main grid ─────────────────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .panel {
+      background: var(--bg);
+      padding: 1.2rem 1.5rem;
+    }
+    .panel-title {
+      font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-dim); margin-bottom: 0.8rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .panel-title-icon { font-size: 1rem; }
+
+    /* ── Disaster-Resource table ──────────────────────── */
+    .req-table {
+      width: 100%; border-collapse: collapse; font-size: 0.78rem;
+    }
+    .req-table th {
+      text-align: left; padding: 0.45rem 0.6rem; font-size: 0.65rem;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-dim); border-bottom: 1px solid var(--border);
+    }
+    .req-table td {
+      padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border);
+    }
+    .req-table tr:last-child td { border-bottom: none; }
+    .req-table .dis-name { font-weight: 700; white-space: nowrap; }
+    .req-tag {
+      display: inline-block; font-size: 0.65rem; font-weight: 600;
+      padding: 0.15rem 0.45rem; border-radius: 4px;
+      margin: 0.1rem 0.2rem 0.1rem 0;
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    }
+
+    /* ── Zone cards ─────────────────────────────────────── */
+    .zones-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .zone-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 0.9rem;
+      transition: all 0.4s;
+    }
+    .zone-card.active {
+      border-color: var(--zone-color, var(--accent));
+      box-shadow: 0 0 14px color-mix(in srgb, var(--zone-color, var(--accent)) 25%, transparent);
+    }
+    .zone-card.done { opacity: 0.45; }
+    .zone-top { display: flex; align-items: center; justify-content: space-between; }
+    .zone-name { font-weight: 700; font-size: 0.9rem; }
+    .zone-badge {
+      font-size: 0.55rem; font-weight: 700; padding: 0.12rem 0.4rem;
+      border-radius: 4px; text-transform: uppercase;
+    }
+    .zone-badge.waiting { background: rgba(139,148,158,.12); color: var(--text-dim); }
+    .zone-badge.active  { background: rgba(63,185,80,.15);  color: var(--success); animation: blink 1.4s infinite; }
+    .zone-badge.done    { background: rgba(88,166,255,.12); color: var(--accent); }
+    .zone-type  { font-size: 0.75rem; margin-top: 0.3rem; }
+    .zone-count { font-size: 0.68rem; color: var(--text-dim); margin-top: 0.15rem; }
+
+    /* ── Resource bars ──────────────────────────────────── */
+    .res-list { display: flex; flex-direction: column; gap: 0.7rem; }
+    .res-item { display: flex; flex-direction: column; gap: 0.35rem; }
+    .res-header { display: flex; align-items: center; justify-content: space-between; }
+    .res-name { font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
+    .res-count { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); font-family: monospace; }
+    .res-track { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+    .res-fill {
+      height: 100%; border-radius: 5px; background: var(--success);
+      transition: width 0.5s ease, background 0.4s;
+    }
+    .res-fill.med  { background: var(--warning); }
+    .res-fill.high { background: var(--danger); }
+    .res-hint { font-size: 0.62rem; color: var(--text-dim); }
+
+    /* ── Event log ─────────────────────────────────────── */
+    .log-panel {
+      grid-column: 1 / -1;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      max-height: 350px;
+    }
+    .log-header {
+      padding: 0.6rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .log-btns { display: flex; gap: 0.5rem; }
+    .btn {
+      padding: 0.22rem 0.6rem; border-radius: 4px;
+      border: 1px solid var(--border); background: var(--surface); color: var(--text-dim);
+      font-size: 0.68rem; cursor: pointer; transition: all 0.2s;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--text); }
+    .btn.on { border-color: var(--success); color: var(--success); }
+    .event-log {
+      flex: 1; overflow-y: auto; padding: 0 0.5rem 0.5rem;
+      font-size: 0.8rem;
+    }
+    .log-entry {
+      display: grid;
+      grid-template-columns: 70px auto 1fr;
+      gap: 0.6rem; align-items: center;
+      padding: 0.5rem 0.7rem; margin-bottom: 2px;
+      border-radius: 6px; border-left: 3px solid transparent;
+      background: var(--surface); animation: slideUp 0.2s ease;
+    }
+    .log-entry:hover { background: var(--surface-2); }
+    .log-time { font-family: monospace; font-size: 0.72rem; color: var(--text-dim); }
+    .log-badge {
+      font-size: 0.6rem; font-weight: 700; padding: 0.15rem 0.45rem;
+      border-radius: 4px; text-align: center; white-space: nowrap;
+    }
+    .log-msg { line-height: 1.5; }
+    .log-msg b { color: #e2e8f0; }
+
+    .e-sub  { border-color:#ffd32a; } .e-sub .log-badge  { background:rgba(255,211,42,.12); color:#ffd32a; }
+    .e-hdl  { border-color:#ffa94d; } .e-hdl .log-badge  { background:rgba(255,169,77,.12); color:#ffa94d; }
+    .e-res  { border-color:#3fb950; } .e-res .log-badge  { background:rgba(63,185,80,.12);  color:#3fb950; }
+    .e-zone { border-color:#74c0fc; } .e-zone .log-badge { background:rgba(116,192,252,.12);color:#74c0fc; }
+    .e-sys  { border-color:#eccc68; } .e-sys .log-badge  { background:rgba(236,204,104,.12);color:#eccc68; }
+
+    .completion-banner {
+      display: none; margin: 0.5rem 1.5rem; padding: 1rem 1.2rem;
+      border-radius: 10px; background: rgba(63,185,80,.08);
+      border: 1px solid var(--success); color: var(--success);
+      font-weight: 700; font-size: 0.9rem;
+      animation: slideUp 0.4s ease; text-align: center;
+    }
+    .completion-banner.show { display: block; }
+
+    /* ── Animations ────────────────────────────────────── */
+    @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:.2} }
+    @keyframes slideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+    ::-webkit-scrollbar       { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────── -->
+<header>
+  <div class="h-left">
+    <span class="h-logo">🚨</span>
+    <div>
+      <div class="h-title">Disaster Emergency Response Coordination System</div>
+      <div class="h-sub">Parallel Programming Course Project</div>
+    </div>
+  </div>
+  <div class="h-right">
+    <div class="conn-badge" id="connBadge">
+      <div class="conn-dot"></div>
+      <span id="connLabel">Connecting…</span>
+    </div>
+    <div class="clock" id="clock"></div>
+  </div>
+</header>
+
+<!-- ── Explanation ─────────────────────────────── -->
+<div class="explain">
+  <div class="explain-title">What is happening here?</div>
+  <p>
+    Imagine a real disaster strikes and <b>5 different areas are hit at the same time</b>.
+    Each area starts reporting emergencies. A team of <b>4 responders work in parallel</b> (at the same time)
+    to handle these emergencies. But there are <b>limited resources</b> (only 8 ambulances, 5 shelters, etc.)
+    — so when a resource runs out, a responder must <b>wait</b> until another one finishes and frees it up.
+    This is the core idea of <b>parallel programming</b>: multiple things happening simultaneously, sharing resources safely.
+  </p>
+</div>
+
+<!-- ── Flow diagram ───────────────────────────── -->
+<div class="flow">
+  <div class="flow-step" id="flowZones">
+    <span class="flow-icon">🌍</span>
+    <span class="flow-label">Step 1: Disasters</span>
+    <span class="flow-value" id="fZones">5</span>
+    <span class="flow-desc">zones reporting<br>emergencies</span>
+  </div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step" id="flowQueue">
+    <span class="flow-icon">📋</span>
+    <span class="flow-label">Step 2: Queue</span>
+    <span class="flow-value" id="fQueue">0</span>
+    <span class="flow-desc">waiting in line<br>(worst first)</span>
+  </div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step" id="flowHandlers">
+    <span class="flow-icon">👷</span>
+    <span class="flow-label">Step 3: Handlers</span>
+    <span class="flow-value" id="fHandling">0</span>
+    <span class="flow-desc">being handled<br>right now</span>
+  </div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step" id="flowResolved">
+    <span class="flow-icon">✅</span>
+    <span class="flow-label">Step 4: Done</span>
+    <span class="flow-value" id="fResolved">0</span>
+    <span class="flow-desc">emergencies<br>resolved</span>
+  </div>
+</div>
+
+<!-- ── Main panels ────────────────────────────── -->
+<div class="main-grid">
+
+  <!-- Left: Zones -->
+  <div class="panel">
+    <div class="panel-title">
+      <span class="panel-title-icon">📍</span>
+      Disaster Zones — each one is a separate thread running at the same time
+    </div>
+    <div class="zones-grid" id="zonesGrid"></div>
+  </div>
+
+  <!-- Right: Resources -->
+  <div class="panel">
+    <div class="panel-title">
+      <span class="panel-title-icon">🛠</span>
+      Shared Resources — when bar is full (red), responders must wait
+    </div>
+    <div class="res-list" id="resList"></div>
+  </div>
+
+  <!-- Full-width: What each disaster needs -->
+  <div class="panel" style="grid-column: 1 / -1;">
+    <div class="panel-title">
+      <span class="panel-title-icon">📦</span>
+      What each disaster type needs — these resources get taken from the shared pool above
+    </div>
+    <table class="req-table">
+      <tr>
+        <th>Disaster Type</th>
+        <th>Resources Required</th>
+      </tr>
+      <tr>
+        <td class="dis-name" style="color:#ff6b6b">🌋 Earthquake</td>
+        <td><span class="req-tag">🚑 Ambulance</span><span class="req-tag">🏠 Shelter</span><span class="req-tag">🚧 Road Crew</span></td>
+      </tr>
+      <tr>
+        <td class="dis-name" style="color:#48dbfb">🌊 Flood</td>
+        <td><span class="req-tag">🥫 Food/Water</span><span class="req-tag">🏠 Shelter</span><span class="req-tag">🚧 Road Crew</span></td>
+      </tr>
+      <tr>
+        <td class="dis-name" style="color:#ffa94d">🔥 Forest Fire</td>
+        <td><span class="req-tag">🚒 Fire Rescue Team</span><span class="req-tag">🚑 Ambulance</span></td>
+      </tr>
+      <tr>
+        <td class="dis-name" style="color:#b197fc">⛰️ Landslide</td>
+        <td><span class="req-tag">🚧 Road Crew</span><span class="req-tag">🚑 Ambulance</span><span class="req-tag">🥫 Food/Water</span></td>
+      </tr>
+      <tr>
+        <td class="dis-name" style="color:#74c0fc">⛈️ Storm</td>
+        <td><span class="req-tag">🏠 Shelter</span><span class="req-tag">🥫 Food/Water</span><span class="req-tag">🚑 Ambulance</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Bottom: Event log -->
+  <div class="log-panel">
+    <div class="log-header">
+      <div class="panel-title" style="margin:0">
+        <span class="panel-title-icon">📡</span>
+        What's happening right now
+      </div>
+      <div class="log-btns">
+        <button class="btn on" id="scrollBtn" onclick="toggleScroll()">⬇ Auto-scroll</button>
+        <button class="btn" onclick="clearLog()">Clear</button>
+      </div>
+    </div>
+    <div class="completion-banner" id="doneBanner">
+      ✅ All emergencies have been resolved! Simulation complete.
+    </div>
+    <div class="event-log" id="eventLog"></div>
+  </div>
+
+</div>
+
+<script>
+const DISASTER_META = {
+  EARTHQUAKE:  { label:'Earthquake',   icon:'🌋', color:'#ff6b6b', needs:'🚑 Ambulance + 🏠 Shelter + 🚧 Road Crew' },
+  FLOOD:       { label:'Flood',         icon:'🌊', color:'#48dbfb', needs:'🥫 Food/Water + 🏠 Shelter + 🚧 Road Crew' },
+  FOREST_FIRE: { label:'Forest Fire',   icon:'🔥', color:'#ffa94d', needs:'🚒 Fire Rescue + 🚑 Ambulance' },
+  LANDSLIDE:   { label:'Landslide',     icon:'⛰️', color:'#b197fc', needs:'🚧 Road Crew + 🚑 Ambulance + 🥫 Food/Water' },
+  STORM:       { label:'Storm',         icon:'⛈️', color:'#74c0fc', needs:'🏠 Shelter + 🥫 Food/Water + 🚑 Ambulance' },
+};
+const RESOURCE_NAMES = {
+  AMBULANCE:'Ambulance', SHELTER:'Shelter',
+  FIRE_RESCUE_TEAM:'Fire Rescue Team',
+  FOOD_WATER_SUPPLY:'Food/Water Supply', ROAD_CREW:'Road Crew',
+};
+const RESOURCE_META = {
+  AMBULANCE:         { icon:'🚑', cap:8  },
+  SHELTER:           { icon:'🏠', cap:5  },
+  FIRE_RESCUE_TEAM:  { icon:'🚒', cap:6  },
+  FOOD_WATER_SUPPLY: { icon:'🥫', cap:10 },
+  ROAD_CREW:         { icon:'🚧', cap:4  },
+};
+
+const S = {
+  received:0, inProgress:0, resolved:0, queued:0,
+  totalRT:0, resolvedCount:0,
+  autoScroll: true,
+  activeZones: 0,
+  zones: {
+    Alpha:   { disaster:'EARTHQUAKE',  status:'waiting', count:0 },
+    Beta:    { disaster:'FLOOD',       status:'waiting', count:0 },
+    Gamma:   { disaster:'FOREST_FIRE', status:'waiting', count:0 },
+    Delta:   { disaster:'LANDSLIDE',   status:'waiting', count:0 },
+    Epsilon: { disaster:'STORM',       status:'waiting', count:0 },
+  },
+  resources: Object.fromEntries(
+    Object.entries(RESOURCE_META).map(([k,v]) => [k, { ...v, inUse:0 }])
+  ),
+};
+
+// ── Build zones ──────────────────────────────
+function buildZones() {
+  const g = document.getElementById('zonesGrid');
+  for (const [name, z] of Object.entries(S.zones)) {
+    const m = DISASTER_META[z.disaster];
+    g.insertAdjacentHTML('beforeend', `
+      <div class="zone-card" id="zc-${name}" style="--zone-color:${m.color}">
+        <div class="zone-top">
+          <span class="zone-name">${name}</span>
+          <span class="zone-badge waiting" id="zb-${name}">Waiting</span>
+        </div>
+        <div class="zone-type" style="color:${m.color}">${m.icon} ${m.label}</div>
+        <div class="zone-count" id="zk-${name}">0 emergencies reported</div>
+      </div>`);
+  }
+}
+
+// ── Build resources ──────────────────────────
+function buildResources() {
+  const list = document.getElementById('resList');
+  for (const [key, r] of Object.entries(S.resources)) {
+    list.insertAdjacentHTML('beforeend', `
+      <div class="res-item">
+        <div class="res-header">
+          <span class="res-name">${r.icon} ${RESOURCE_NAMES[key]}</span>
+          <span class="res-count" id="rc-${key}">0 / ${r.cap} in use</span>
+        </div>
+        <div class="res-track">
+          <div class="res-fill" id="rf-${key}" style="width:0%"></div>
+        </div>
+        <div class="res-hint" id="rh-${key}">All ${r.cap} available</div>
+      </div>`);
+  }
+}
+
+// ── Clock ────────────────────────────────────
+setInterval(() => { document.getElementById('clock').textContent = new Date().toTimeString().slice(0,8); }, 1000);
+
+// ── Flow diagram update ─────────────────────
+function updateFlow() {
+  document.getElementById('fQueue').textContent    = S.queued;
+  document.getElementById('fHandling').textContent = S.inProgress;
+  document.getElementById('fResolved').textContent = S.resolved;
+  document.getElementById('fZones').textContent    = S.activeZones;
+
+  const q = document.getElementById('flowQueue');
+  q.className = 'flow-step' + (S.queued > 0 ? ' active' : '');
+  const h = document.getElementById('flowHandlers');
+  h.className = 'flow-step' + (S.inProgress > 0 ? ' active' : '');
+  const r = document.getElementById('flowResolved');
+  r.className = 'flow-step' + (S.resolved > 0 ? ' done' : '');
+}
+
+// ── Zone status ──────────────────────────────
+function setZoneStatus(name, status) {
+  const card  = document.getElementById('zc-' + name);
+  const badge = document.getElementById('zb-' + name);
+  if (!card) return;
+  card.className = 'zone-card ' + status;
+  badge.className = 'zone-badge ' + status;
+  badge.textContent = {waiting:'Waiting', active:'Active', done:'Done'}[status] || status;
+}
+
+function recountActiveZones() {
+  S.activeZones = Object.values(S.zones).filter(z => z.status === 'active').length;
+}
+
+// ── Resource bars ────────────────────────────
+function updateResource(key, inUse, capacity) {
+  const r = S.resources[key];
+  if (!r) return;
+  r.inUse = inUse;
+  if (capacity) r.cap = capacity;
+  const pct = r.cap > 0 ? (inUse / r.cap) * 100 : 0;
+  const free = r.cap - inUse;
+  const bar  = document.getElementById('rf-' + key);
+  const cnt  = document.getElementById('rc-' + key);
+  const hint = document.getElementById('rh-' + key);
+  if (bar) {
+    bar.style.width = pct + '%';
+    bar.className = 'res-fill' + (pct >= 80 ? ' high' : pct >= 50 ? ' med' : '');
+  }
+  if (cnt) cnt.textContent = inUse + ' / ' + r.cap + ' in use';
+  if (hint) {
+    if (free === 0)      hint.textContent = '⚠️ All busy — responders must WAIT for one to free up';
+    else if (pct >= 50)  hint.textContent = '⚡ Getting busy — only ' + free + ' left';
+    else                 hint.textContent = free + ' of ' + r.cap + ' available';
+    hint.style.color = pct >= 80 ? '#f85149' : pct >= 50 ? '#d29922' : '';
+  }
+}
+
+// ── Event log ────────────────────────────────
+let logCount = 0;
+function ts() { return new Date().toTimeString().slice(0,8); }
+
+function addLog(cls, badge, msg) {
+  const log = document.getElementById('eventLog');
+  const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 50;
+  if (logCount >= 200) log.removeChild(log.firstChild);
+  log.insertAdjacentHTML('beforeend',
+    `<div class="log-entry ${cls}"><span class="log-time">${ts()}</span>` +
+    `<span class="log-badge">${badge}</span><span class="log-msg">${msg}</span></div>`);
+  logCount++;
+  if (S.autoScroll && atBottom) log.scrollTop = log.scrollHeight;
+}
+function clearLog() { document.getElementById('eventLog').innerHTML = ''; logCount = 0; }
+function toggleScroll() {
+  S.autoScroll = !S.autoScroll;
+  const btn = document.getElementById('scrollBtn');
+  btn.textContent = S.autoScroll ? '⬇ Auto-scroll' : '↕ Manual';
+  btn.className = 'btn' + (S.autoScroll ? ' on' : '');
+}
+
+// ── Handle events from Java ──────────────────
+function onEvent(data) {
+  const m   = data.disaster ? DISASTER_META[data.disaster] : null;
+  const col = m ? `style="color:${m.color}"` : '';
+  const ico = m ? m.icon + ' ' : '';
+  const lbl = m ? m.label : '';
+
+  switch (data.type) {
+
+    case 'emergency_submitted':
+      S.received++;
+      S.queued = Math.max(0, S.received - S.inProgress - S.resolved);
+      if (S.zones[data.zone]) {
+        S.zones[data.zone].count++;
+        const zk = document.getElementById('zk-' + data.zone);
+        if (zk) zk.textContent = S.zones[data.zone].count + ' emergencies reported';
+      }
+      addLog('e-sub', '🆘 NEW',
+        `<b ${col}>${ico}${lbl}</b> emergency in <b>${data.zone}</b> — severity <b>${data.severity}/10</b>`);
+      updateFlow();
+      break;
+
+    case 'emergency_handling':
+      S.inProgress++;
+      S.queued = Math.max(0, S.received - S.inProgress - S.resolved);
+      const needs = m ? m.needs : '';
+      addLog('e-hdl', '👷 HANDLING',
+        `<b>${data.handler}</b> responding to <b ${col}>${ico}${lbl}</b> in <b>${data.zone}</b> — needs: ${needs}`);
+      updateFlow();
+      break;
+
+    case 'emergency_resolved':
+      S.resolved++;
+      S.inProgress = Math.max(0, S.inProgress - 1);
+      S.queued = Math.max(0, S.received - S.inProgress - S.resolved);
+      S.totalRT += data.responseTimeMs;
+      S.resolvedCount++;
+      const avgSec = (S.totalRT / S.resolvedCount / 1000).toFixed(1);
+      addLog('e-res', '✅ DONE',
+        `Emergency #${data.id} in <b>${data.zone}</b> resolved by <b>${data.handler}</b> in <b>${(data.responseTimeMs/1000).toFixed(1)}s</b>`);
+      updateFlow();
+      break;
+
+    case 'resource_acquired':
+      updateResource(data.resource, data.inUse, data.capacity);
+      break;
+
+    case 'resource_released':
+      updateResource(data.resource, data.inUse, data.capacity);
+      break;
+
+    case 'zone_started':
+      if (S.zones[data.zone]) S.zones[data.zone].status = 'active';
+      setZoneStatus(data.zone, 'active');
+      recountActiveZones();
+      addLog('e-zone', '🌍 ZONE',
+        `<b>${data.zone}</b> zone activated — <b ${col}>${ico}${lbl}</b> disaster started!`);
+      updateFlow();
+      break;
+
+    case 'zone_finished':
+      if (S.zones[data.zone]) S.zones[data.zone].status = 'done';
+      setZoneStatus(data.zone, 'done');
+      recountActiveZones();
+      addLog('e-zone', '🏁 ZONE',
+        `<b>${data.zone}</b> zone finished reporting all emergencies`);
+      updateFlow();
+      break;
+
+    case 'dashboard_update':
+      if (data.resources) {
+        for (const [key, r] of Object.entries(data.resources))
+          updateResource(key, r.inUse, r.capacity);
+      }
+      S.queued = data.queued || 0;
+      updateFlow();
+      break;
+
+    case 'system_complete':
+      document.getElementById('connBadge').className = 'conn-badge done';
+      document.getElementById('connLabel').textContent = 'COMPLETE';
+      document.getElementById('doneBanner').classList.add('show');
+      document.getElementById('flowResolved').className = 'flow-step done';
+      addLog('e-sys', '🎯 FINISH',
+        `All <b>${data.totalResolved}</b> emergencies resolved! Simulation complete.`);
+      break;
+  }
+}
+
+// ── SSE connection ───────────────────────────
+function connect() {
+  const es = new EventSource('/events');
+  es.onopen = () => {
+    document.getElementById('connBadge').className = 'conn-badge live';
+    document.getElementById('connLabel').textContent = 'LIVE';
+    addLog('e-sys', '🔌 SYSTEM', 'Connected — waiting for the disaster simulation to begin...');
+  };
+  es.onmessage = e => { try { onEvent(JSON.parse(e.data)); } catch(_) {} };
+  es.onerror = () => {
+    document.getElementById('connBadge').className = 'conn-badge';
+    document.getElementById('connLabel').textContent = 'Reconnecting…';
+    es.close();
+    setTimeout(connect, 3000);
+  };
+}
+
+buildZones();
+buildResources();
+connect();
+</script>
+</body>
+</html>
